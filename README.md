@@ -34,9 +34,9 @@ A Model Context Protocol (MCP) server that provides Salesforce integration for A
 ### Option 1: uvx (Recommended)
 
 ```bash
-uvx salesforce-mcp-server stdio
+uvx salesforce-mcp-server --transport stdio
 # or for HTTP mode:
-uvx salesforce-mcp-server streamable-http
+uvx salesforce-mcp-server --transport http
 ```
 
 ### Option 2: Docker
@@ -54,7 +54,7 @@ docker run -p 8000:8000 \
 docker run -i \
   -e SALESFORCE_ACCESS_TOKEN=your_token \
   -e SALESFORCE_INSTANCE_URL=https://your-domain.my.salesforce.com \
-  ghcr.io/hypn4/salesforce-mcp-server stdio
+  ghcr.io/hypn4/salesforce-mcp-server --transport stdio
 ```
 
 ### Option 3: Pre-built Binary
@@ -185,7 +185,7 @@ Config file location:
 
 First, start the server:
 ```bash
-uvx salesforce-mcp-server streamable-http
+uvx salesforce-mcp-server --transport http
 ```
 
 Then configure Claude Desktop:
@@ -208,7 +208,7 @@ Then configure Claude Desktop:
   "mcpServers": {
     "salesforce": {
       "command": "uvx",
-      "args": ["salesforce-mcp-server", "stdio"],
+      "args": ["salesforce-mcp-server", "--transport", "stdio"],
       "env": {
         "SALESFORCE_ACCESS_TOKEN": "00D...",
         "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com"
@@ -232,7 +232,7 @@ Config file location:
 
 First, start the server:
 ```bash
-uvx salesforce-mcp-server streamable-http
+uvx salesforce-mcp-server --transport http
 ```
 
 Then configure Claude Code:
@@ -256,7 +256,7 @@ Then configure Claude Code:
   "mcpServers": {
     "salesforce": {
       "command": "uvx",
-      "args": ["salesforce-mcp-server", "stdio"],
+      "args": ["salesforce-mcp-server", "--transport", "stdio"],
       "env": {
         "SALESFORCE_ACCESS_TOKEN": "00D...",
         "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com"
@@ -279,7 +279,7 @@ First, start the server with environment variables:
 SALESFORCE_CLIENT_ID=your_client_id \
 SALESFORCE_LOGIN_URL=https://login.salesforce.com \
 SALESFORCE_INSTANCE_URL=https://your-domain.my.salesforce.com \
-uvx salesforce-mcp-server streamable-http
+uvx salesforce-mcp-server --transport http
 ```
 
 Then configure Gemini CLI:
@@ -306,7 +306,7 @@ Gemini CLI uses HTTP mode with OAuth 2.0 Dynamic Client Registration. The OAuth 
   "mcpServers": {
     "salesforce": {
       "command": "uvx",
-      "args": ["salesforce-mcp-server", "stdio"],
+      "args": ["salesforce-mcp-server", "--transport", "stdio"],
       "env": {
         "SALESFORCE_ACCESS_TOKEN": "00D...",
         "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com"
@@ -322,14 +322,14 @@ Gemini CLI uses HTTP mode with OAuth 2.0 Dynamic Client Registration. The OAuth 
 
 **STDIO Mode:**
 ```bash
-uvx salesforce-mcp-server stdio
+uvx salesforce-mcp-server --transport stdio
 # or with local development:
 just run
 ```
 
 **HTTP Mode:**
 ```bash
-uvx salesforce-mcp-server streamable-http
+uvx salesforce-mcp-server --transport http
 # or with local development:
 just run-http
 ```
