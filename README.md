@@ -199,6 +199,7 @@ Then configure Claude Code:
 {
   "mcpServers": {
     "salesforce": {
+      "type": "http",
       "url": "http://localhost:8000/mcp"
     }
   }
@@ -227,7 +228,7 @@ Then configure Gemini CLI:
   "mcpServers": {
     "salesforce": {
       "httpUrl": "http://localhost:8000/mcp",
-      "authType": "oauth2"
+      "authProvider": "dynamic_discovery"
     }
   }
 }
