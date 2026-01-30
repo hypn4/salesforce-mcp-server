@@ -1,6 +1,6 @@
 """Custom exceptions for Salesforce MCP Server."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from functools import wraps
 from typing import Any, ParamSpec, TypeVar
 
@@ -108,9 +108,9 @@ def handle_salesforce_errors(func: Callable[P, R]) -> Callable[P, R]:
     return wrapper
 
 
-async def handle_salesforce_errors_async(
-    func: Callable[P, R],
-) -> Callable[P, R]:
+def handle_salesforce_errors_async(
+    func: Callable[P, Coroutine[Any, Any, R]],
+) -> Callable[P, Coroutine[Any, Any, R]]:
     """Async version of handle_salesforce_errors decorator."""
 
     @wraps(func)

@@ -34,7 +34,11 @@ def register_record_tools(mcp: FastMCP) -> None:
         Returns:
             Record data with requested fields
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()
@@ -73,7 +77,11 @@ def register_record_tools(mcp: FastMCP) -> None:
             - success: Whether creation succeeded
             - errors: Any errors that occurred
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()
@@ -110,7 +118,11 @@ def register_record_tools(mcp: FastMCP) -> None:
         Returns:
             Update result with success status
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()
@@ -145,7 +157,11 @@ def register_record_tools(mcp: FastMCP) -> None:
         Returns:
             Deletion result with success status
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()
@@ -186,7 +202,11 @@ def register_record_tools(mcp: FastMCP) -> None:
         Returns:
             Upsert result with success status
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()

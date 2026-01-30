@@ -7,20 +7,17 @@ enabling Salesforce OAuth 2.0 PKCE authentication for MCP clients.
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
 
 import httpx
 import msgspec
+from fastmcp.server.auth import AccessToken, TokenVerifier
 
 from ..logging_config import get_logger
-
-if TYPE_CHECKING:
-    from fastmcp.server.auth import AccessToken
 
 logger = get_logger("oauth.token_verifier")
 
 
-class SalesforceTokenVerifier:
+class SalesforceTokenVerifier(TokenVerifier):
     """FastMCP TokenVerifier protocol implementation for Salesforce.
 
     This verifier implements the async verify_token interface required by
@@ -35,13 +32,12 @@ class SalesforceTokenVerifier:
 
     def __init__(self) -> None:
         """Initialize the verifier."""
+        super().__init__()
         self._default_instance_url = os.getenv(
             "SALESFORCE_INSTANCE_URL",
             "https://login.salesforce.com",
         )
         self._http_client: httpx.AsyncClient | None = None
-        # Required by FastMCP TokenVerifier protocol
-        self.required_scopes: list[str] = []
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create async HTTP client."""
@@ -70,7 +66,7 @@ class SalesforceTokenVerifier:
 
         return self._default_instance_url
 
-    async def verify_token(self, token: str) -> "AccessToken | None":
+    async def verify_token(self, token: str) -> AccessToken | None:
         """Verify Salesforce token and return FastMCP AccessToken.
 
         This implements the FastMCP TokenVerifier protocol (async).
@@ -81,8 +77,6 @@ class SalesforceTokenVerifier:
         Returns:
             AccessToken with user claims if valid, None if invalid
         """
-        from fastmcp.server.auth import AccessToken
-
         token_preview = token[:30] + "..." if len(token) > 30 else token
         logger.info("verify_token called: token_preview=%s", token_preview)
 

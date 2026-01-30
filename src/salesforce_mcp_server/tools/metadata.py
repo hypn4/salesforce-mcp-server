@@ -39,7 +39,11 @@ def register_metadata_tools(mcp: FastMCP) -> None:
             - keyPrefix: Object ID prefix
             - And more...
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()
@@ -78,7 +82,11 @@ def register_metadata_tools(mcp: FastMCP) -> None:
             - updateable: Whether records can be updated
             - deletable: Whether records can be deleted
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()
@@ -118,7 +126,11 @@ def register_metadata_tools(mcp: FastMCP) -> None:
             - picklistValues: For picklist fields, available values
             - referenceTo: For reference fields, related object(s)
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()

@@ -3,7 +3,7 @@
 import asyncio
 from typing import TYPE_CHECKING
 
-from simple_salesforce import Salesforce
+from simple_salesforce.api import Salesforce
 
 from ..logging_config import get_logger
 

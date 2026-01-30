@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from simple_salesforce import Salesforce
+from simple_salesforce.api import Salesforce
 
 from ..errors import (
     ValidationError,
@@ -206,6 +206,8 @@ class SalesforceOperations:
         """
         logger.debug("Listing all objects")
         result = self._client.describe()
+        if result is None:
+            return []
         objects = result.get("sobjects", [])
         logger.info("Listed %d objects", len(objects))
         return objects
@@ -222,8 +224,8 @@ class SalesforceOperations:
             Query results as a list of records
         """
         logger.debug("Executing bulk query on %s: %s", sobject, soql[:200])
-        bulk = self._client.bulk.__getattr__(sobject)
-        result = bulk.query(soql)
+        bulk_handler = getattr(self._client.bulk, sobject)
+        result = bulk_handler.query(soql)
         result_list = list(result)
         logger.info("Bulk query completed: %d records", len(result_list))
         if len(result_list) > 10000:
@@ -249,8 +251,8 @@ class SalesforceOperations:
             raise ValidationError("Records list cannot be empty")
 
         logger.debug("Bulk inserting %d %s records", len(records), sobject)
-        bulk = self._client.bulk.__getattr__(sobject)
-        result = bulk.insert(records)
+        bulk_handler = getattr(self._client.bulk, sobject)
+        result = bulk_handler.insert(records)  # type: ignore[arg-type]
         result_list = list(result)
         success_count = sum(1 for r in result_list if r.get("success"))
         total = len(result_list)
@@ -283,8 +285,8 @@ class SalesforceOperations:
                 raise ValidationError("Each record must include an 'Id' field")
 
         logger.debug("Bulk updating %d %s records", len(records), sobject)
-        bulk = self._client.bulk.__getattr__(sobject)
-        result = bulk.update(records)
+        bulk_handler = getattr(self._client.bulk, sobject)
+        result = bulk_handler.update(records)  # type: ignore[arg-type]
         result_list = list(result)
         success_count = sum(1 for r in result_list if r.get("success"))
         total = len(result_list)
@@ -313,9 +315,9 @@ class SalesforceOperations:
             raise ValidationError("Record IDs list cannot be empty")
 
         logger.debug("Bulk deleting %d %s records", len(record_ids), sobject)
-        records = [{"Id": rid} for rid in record_ids]
-        bulk = self._client.bulk.__getattr__(sobject)
-        result = bulk.delete(records)
+        delete_records = [{"Id": rid} for rid in record_ids]
+        bulk_handler = getattr(self._client.bulk, sobject)
+        result = bulk_handler.delete(delete_records)  # type: ignore[arg-type]
         result_list = list(result)
         success_count = sum(1 for r in result_list if r.get("success"))
         total = len(result_list)

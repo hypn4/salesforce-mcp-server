@@ -34,7 +34,11 @@ def register_bulk_tools(mcp: FastMCP) -> None:
         Returns:
             List of all matching records
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()
@@ -77,7 +81,11 @@ def register_bulk_tools(mcp: FastMCP) -> None:
             - id: The new record ID (if successful)
             - errors: Any errors that occurred
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()
@@ -119,7 +127,11 @@ def register_bulk_tools(mcp: FastMCP) -> None:
         Returns:
             List of results for each record with success status
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()
@@ -157,7 +169,11 @@ def register_bulk_tools(mcp: FastMCP) -> None:
         Returns:
             List of results for each record with success status
         """
+        if ctx.request_context is None:
+            raise RuntimeError("Request context not available")
         app_ctx = ctx.request_context.lifespan_context
+        if app_ctx is None:
+            raise RuntimeError("Application context not initialized")
         client_manager: SalesforceClientManager = app_ctx.client_manager
 
         token_info = get_salesforce_token()

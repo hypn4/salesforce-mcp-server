@@ -7,13 +7,10 @@ based on environment configuration.
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from key_value.aio import AsyncKeyValue
+from typing import Any
 
 
-def create_storage() -> AsyncKeyValue:
+def create_storage() -> Any:
     """Create storage backend based on configuration.
 
     Environment variables:
@@ -33,12 +30,12 @@ def create_storage() -> AsyncKeyValue:
     encryption_key = os.getenv("STORAGE_ENCRYPTION_KEY")
 
     if storage_type == "memory":
-        store: AsyncKeyValue = MemoryStore()
+        store: Any = MemoryStore()
     elif storage_type == "redis":
         from key_value.aio.stores.redis import RedisStore
 
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-        store = RedisStore.from_url(redis_url)
+        store = RedisStore.from_url(redis_url)  # type: ignore[attr-defined]
     else:
         raise ValueError(f"Unknown storage type: {storage_type}")
 
