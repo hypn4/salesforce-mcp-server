@@ -61,7 +61,8 @@ def get_config() -> ServerConfig:
     instance_url = os.getenv("SALESFORCE_INSTANCE_URL", "https://login.salesforce.com")
 
     # HTTP server settings
-    port = int(os.getenv("FASTMCP_PORT", "8000"))
+    # Cloud platform standard: PORT first, then FASTMCP_PORT, then default
+    port = int(os.getenv("PORT") or os.getenv("FASTMCP_PORT") or "8000")
     base_url = os.getenv("FASTMCP_BASE_URL", f"http://localhost:{port}")
 
     if client_id:
@@ -258,7 +259,7 @@ def main() -> None:
     if len(sys.argv) > 1:
         transport = sys.argv[1]
 
-    port = int(os.getenv("FASTMCP_PORT", "8000"))
+    port = int(os.getenv("PORT") or os.getenv("FASTMCP_PORT") or "8000")
 
     try:
         asyncio.run(run_server_async(transport, port))
