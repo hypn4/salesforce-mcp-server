@@ -21,11 +21,6 @@ jobs:
             arch: amd64
             ext: ''
             archive: tar.gz
-          - os: ubuntu-latest-arm
-            platform: linux
-            arch: arm64
-            ext: ''
-            archive: tar.gz
           - os: macos-latest
             platform: darwin
             arch: arm64
