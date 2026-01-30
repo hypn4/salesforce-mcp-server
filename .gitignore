@@ -6,6 +6,9 @@ dist/
 wheels/
 *.egg-info
 
+# PyInstaller
+*.spec
+
 # Auto-generated version file
 src/salesforce_mcp_server/_version.py
 
