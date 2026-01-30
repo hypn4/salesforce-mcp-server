@@ -5,6 +5,10 @@
 # =============================================================================
 FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS builder
 
+# Build argument for version (required for setuptools-scm in Docker builds)
+ARG VERSION=0.0.0
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION}
+
 # Enable bytecode compilation for faster startup
 ENV UV_COMPILE_BYTECODE=1
 
@@ -47,8 +51,9 @@ RUN groupadd --gid 1000 mcp && \
 
 WORKDIR /app
 
-# Copy the virtual environment from builder
+# Copy the virtual environment and source code from builder
 COPY --from=builder --chown=mcp:mcp /app/.venv /app/.venv
+COPY --from=builder --chown=mcp:mcp /app/src /app/src
 
 # Set up environment
 ENV PATH="/app/.venv/bin:$PATH"
@@ -58,9 +63,9 @@ ENV PYTHONUNBUFFERED=1
 # Switch to non-root user
 USER mcp
 
-# Health check - verify the server can start
+# Health check - verify the module can be imported (shell form to bypass ENTRYPOINT)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD ["python", "-c", "import salesforce_mcp_server; print('healthy')"]
+    CMD python -c "import salesforce_mcp_server; print('healthy')"
 
 # Default entrypoint
 ENTRYPOINT ["salesforce-mcp-server"]

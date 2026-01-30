@@ -71,6 +71,8 @@ jobs:
           push: true
           provenance: true
           sbom: true
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache-suffix }}
