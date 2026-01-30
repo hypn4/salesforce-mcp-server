@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 import os
 import signal
-import sys
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING, Annotated, AsyncIterator
 
 import msgspec
+import typer
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 
@@ -184,7 +184,7 @@ def create_server(transport: str = "stdio") -> FastMCP:
     """Create and configure the FastMCP server.
 
     Args:
-        transport: Transport mode ('stdio' or 'streamable-http')
+        transport: Transport mode ('stdio' or 'http')
 
     Returns:
         Configured FastMCP server instance
@@ -195,7 +195,7 @@ def create_server(transport: str = "stdio") -> FastMCP:
 
     # Configure auth for HTTP mode
     auth: "AuthProvider | None" = None
-    if transport == "streamable-http":
+    if transport == "http":
         auth = _create_http_auth(config)
 
     mcp = FastMCP(
@@ -225,7 +225,7 @@ async def run_server_async(transport: str, port: int) -> None:
     """Run the server with graceful shutdown support.
 
     Args:
-        transport: Transport mode ('stdio' or 'streamable-http')
+        transport: Transport mode ('stdio' or 'http')
         port: Port number for HTTP transport
     """
     server = create_server(transport)
@@ -245,28 +245,49 @@ async def run_server_async(transport: str, port: int) -> None:
     logger.info("Starting server with transport: %s", transport)
 
     try:
-        if transport == "streamable-http":
-            await server.run_async(transport="streamable-http", port=port)
+        if transport == "http":
+            await server.run_async(transport="http", port=port)
         else:
             await server.run_async(transport="stdio")
     except asyncio.CancelledError:
         logger.info("Server task cancelled")
 
 
-def main() -> None:
-    """Main entry point for the server."""
-    transport = "stdio"
-    if len(sys.argv) > 1:
-        transport = sys.argv[1]
+app = typer.Typer(
+    name="salesforce-mcp-server",
+    help="Salesforce MCP Server - Model Context Protocol server for Salesforce.",
+    add_completion=False,
+)
 
-    port = int(os.getenv("PORT") or os.getenv("FASTMCP_PORT") or "8000")
+
+@app.command()
+def main(
+    transport: Annotated[
+        str,
+        typer.Option(
+            "--transport",
+            "-t",
+            help="Transport mode: stdio, http",
+        ),
+    ] = "stdio",
+    port: Annotated[
+        int | None,
+        typer.Option(
+            "--port",
+            "-p",
+            help="Port for HTTP transport (default: from PORT env or 8000)",
+        ),
+    ] = None,
+) -> None:
+    """Run the Salesforce MCP Server."""
+    actual_port = port or int(os.getenv("PORT") or os.getenv("FASTMCP_PORT") or "8000")
 
     try:
-        asyncio.run(run_server_async(transport, port))
+        asyncio.run(run_server_async(transport, actual_port))
     except KeyboardInterrupt:
         # Fallback for platforms where signal handlers don't work
         logger.info("Server stopped by user")
 
 
 if __name__ == "__main__":
-    main()
+    app()

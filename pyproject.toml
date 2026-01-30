@@ -38,13 +38,15 @@ dependencies = [
     "py-key-value-aio[redis]>=0.3.0",
     "python-dotenv>=1.2.1",
     "simple-salesforce>=1.12.9",
+    "typer>=0.21.1",
 ]
 
 [project.scripts]
-salesforce-mcp-server = "salesforce_mcp_server.server:main"
+salesforce-mcp-server = "salesforce_mcp_server.server:app"
 
 [dependency-groups]
 dev = [
+    "pyinstaller>=6.18.0",
     "pyright>=1.1.408",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
