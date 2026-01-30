@@ -6,8 +6,9 @@ dist/
 wheels/
 *.egg-info
 
-# PyInstaller
-*.spec
+# PyInstaller (keep salesforce-mcp-server.spec tracked)
+*.manifest
+*.spec.bak
 
 # Auto-generated version file
 src/salesforce_mcp_server/_version.py
