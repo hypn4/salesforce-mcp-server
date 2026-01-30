@@ -1,0 +1,128 @@
+name: Binary Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-binaries:
+    name: Build (${{ matrix.platform }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux
+            arch: amd64
+            ext: ''
+            archive: tar.gz
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            ext: ''
+            archive: tar.gz
+          - os: macos-14
+            platform: darwin
+            arch: arm64
+            ext: ''
+            archive: tar.gz
+          - os: macos-13
+            platform: darwin
+            arch: amd64
+            ext: ''
+            archive: tar.gz
+          - os: windows-latest
+            platform: windows
+            arch: amd64
+            ext: '.exe'
+            archive: zip
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-suffix: ${{ matrix.platform }}-${{ matrix.arch }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+          uv pip install pyinstaller
+
+      - name: Build binary
+        shell: bash
+        run: |
+          uv run pyinstaller --onefile \
+            --name "salesforce-mcp-server-${{ matrix.platform }}-${{ matrix.arch }}" \
+            --collect-all salesforce_mcp_server \
+            --hidden-import mcp \
+            --hidden-import fastmcp \
+            --hidden-import httpx \
+            --hidden-import msgspec \
+            --hidden-import cryptography \
+            --hidden-import aiofiles \
+            --hidden-import simple_salesforce \
+            --hidden-import py_key_value_aio \
+            src/salesforce_mcp_server/server.py
+
+      - name: Create archive (Unix)
+        if: matrix.archive == 'tar.gz'
+        run: |
+          cd dist
+          tar -czvf "salesforce-mcp-server-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" \
+            "salesforce-mcp-server-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }}"
+
+      - name: Create archive (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          cd dist
+          Compress-Archive -Path "salesforce-mcp-server-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.ext }}" `
+            -DestinationPath "salesforce-mcp-server-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: binary-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/salesforce-mcp-server-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive }}
+          if-no-files-found: error
+          retention-days: 1
+
+  upload-release:
+    name: Upload to Release
+    runs-on: ubuntu-24.04
+    needs: build-binaries
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          pattern: binary-*
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum salesforce-mcp-server-* > checksums-sha256.txt
+          cat checksums-sha256.txt
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/salesforce-mcp-server-*.tar.gz
+            artifacts/salesforce-mcp-server-*.zip
+            artifacts/checksums-sha256.txt
+          fail_on_unmatched_files: true
+          generate_release_notes: true
