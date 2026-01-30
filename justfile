@@ -80,3 +80,35 @@ clean:
 # Show registered MCP tools
 tools:
     uv run python -c "from salesforce_mcp_server.server import mcp; tools = list(mcp._tool_manager._tools.keys()); [print(f'  - {t}') for t in sorted(tools)]; print(f'\nTotal: {len(tools)} tools')"
+
+# === Docker ===
+
+# Build Docker image
+docker-build:
+    docker build -t salesforce-mcp-server .
+
+# Run in Docker (HTTP mode)
+docker-run:
+    docker run -p 8000:8000 --env-file .env salesforce-mcp-server
+
+# Run in Docker (STDIO mode)
+docker-run-stdio:
+    docker run -i --env-file .env salesforce-mcp-server stdio
+
+# === Binary Build ===
+
+# Build standalone binary (requires pyinstaller)
+build-binary:
+    uv pip install pyinstaller
+    uv run pyinstaller --onefile \
+        --name salesforce-mcp-server \
+        --collect-all salesforce_mcp_server \
+        --hidden-import mcp \
+        --hidden-import fastmcp \
+        --hidden-import httpx \
+        --hidden-import msgspec \
+        --hidden-import cryptography \
+        --hidden-import aiofiles \
+        --hidden-import simple_salesforce \
+        --hidden-import py_key_value_aio \
+        src/salesforce_mcp_server/server.py
