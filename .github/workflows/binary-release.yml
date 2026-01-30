@@ -26,12 +26,12 @@ jobs:
             arch: arm64
             ext: ''
             archive: tar.gz
-          - os: macos-15
+          - os: macos-latest
             platform: darwin
             arch: arm64
             ext: ''
             archive: tar.gz
-          - os: macos-15-intel
+          - os: macos-latest-large
             platform: darwin
             arch: amd64
             ext: ''
