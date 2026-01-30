@@ -89,10 +89,35 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 ## MCP Integration Guide
 
-Two transport modes are supported:
+### Transport Modes and Authentication
 
-- **STDIO Mode** - For local MCP clients (Claude Desktop, Claude Code)
-- **HTTP Mode (Streamable HTTP)** - For web clients with OAuth 2.0 support (Gemini CLI)
+| Mode | Authentication | Use Case |
+|------|----------------|----------|
+| **STDIO** | Access Token (env vars) | Claude Desktop, Claude Code |
+| **HTTP** | OAuth 2.0 PKCE | Gemini CLI, Web clients |
+
+> **Note**: STDIO mode does not support OAuth flow.
+> You must provide an Access Token via environment variables.
+
+### STDIO Mode Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SALESFORCE_ACCESS_TOKEN` | Yes | Salesforce Access Token |
+| `SALESFORCE_INSTANCE_URL` | Yes | Salesforce Instance URL (e.g., `https://your-domain.my.salesforce.com`) |
+| `SALESFORCE_USER_ID` | No | User ID (default: `env_user`) |
+| `SALESFORCE_ORG_ID` | No | Org ID (default: `env_org`) |
+| `SALESFORCE_USERNAME` | No | Username (default: `env_user`) |
+
+### Getting an Access Token for STDIO Mode
+
+Use Salesforce CLI to get your Access Token:
+
+```bash
+sf org display --target-org <your-org-alias>
+```
+
+From the output, copy the `Access Token` and `Instance Url` values for your configuration.
 
 ---
 
@@ -111,8 +136,7 @@ Config file location:
       "command": "uvx",
       "args": ["salesforce-mcp-server", "stdio"],
       "env": {
-        "SALESFORCE_CLIENT_ID": "your_connected_app_client_id",
-        "SALESFORCE_LOGIN_URL": "https://login.salesforce.com",
+        "SALESFORCE_ACCESS_TOKEN": "00D...",
         "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com"
       }
     }
@@ -155,8 +179,7 @@ Config file location:
       "command": "uvx",
       "args": ["salesforce-mcp-server", "stdio"],
       "env": {
-        "SALESFORCE_CLIENT_ID": "your_connected_app_client_id",
-        "SALESFORCE_LOGIN_URL": "https://login.salesforce.com",
+        "SALESFORCE_ACCESS_TOKEN": "00D...",
         "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com"
       }
     }
@@ -214,6 +237,9 @@ Gemini CLI uses HTTP mode with OAuth 2.0 Dynamic Client Registration. The OAuth 
 
 **STDIO Mode**
 
+> **Warning**: STDIO mode does not support OAuth. You must provide an Access Token directly.
+> Use HTTP Mode above if you need OAuth authentication.
+
 ```json
 {
   "mcpServers": {
@@ -221,8 +247,7 @@ Gemini CLI uses HTTP mode with OAuth 2.0 Dynamic Client Registration. The OAuth 
       "command": "uvx",
       "args": ["salesforce-mcp-server", "stdio"],
       "env": {
-        "SALESFORCE_CLIENT_ID": "your_connected_app_client_id",
-        "SALESFORCE_LOGIN_URL": "https://login.salesforce.com",
+        "SALESFORCE_ACCESS_TOKEN": "00D...",
         "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com"
       }
     }
