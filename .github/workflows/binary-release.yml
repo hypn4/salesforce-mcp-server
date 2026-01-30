@@ -61,19 +61,10 @@ jobs:
 
       - name: Build binary
         shell: bash
-        run: |
-          uv run pyinstaller --onefile \
-            --name "salesforce-mcp-server-${{ matrix.platform }}-${{ matrix.arch }}" \
-            --collect-all salesforce_mcp_server \
-            --hidden-import mcp \
-            --hidden-import fastmcp \
-            --hidden-import httpx \
-            --hidden-import msgspec \
-            --hidden-import cryptography \
-            --hidden-import aiofiles \
-            --hidden-import simple_salesforce \
-            --hidden-import py_key_value_aio \
-            src/salesforce_mcp_server/server.py
+        env:
+          BUILD_PLATFORM: ${{ matrix.platform }}
+          BUILD_ARCH: ${{ matrix.arch }}
+        run: uv run pyinstaller salesforce-mcp-server.spec
 
       - name: Create archive (Unix)
         if: matrix.archive == 'tar.gz'
