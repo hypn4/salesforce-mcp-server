@@ -1,0 +1,51 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+.env
+.env.*
+
+# Development
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+wheels/
+*.spec
+
+# CI/CD
+.github/
+
+# Documentation (not needed in container)
+*.md
+!README.md
+docs/
+
+# Tests
+tests/
+*_test.py
+test_*.py
+conftest.py
