@@ -45,6 +45,7 @@ salesforce-mcp-server = "salesforce_mcp_server.server:main"
 
 [dependency-groups]
 dev = [
+    "pyright>=1.1.408",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
     "ruff>=0.14.14",
