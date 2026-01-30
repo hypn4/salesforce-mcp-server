@@ -63,14 +63,15 @@ Download from [GitHub Releases](https://github.com/hypn4/salesforce-mcp-server/r
 
 | Platform | Download |
 |----------|----------|
-| Linux (x64) | `salesforce-mcp-server-linux-amd64` |
-| macOS (x64) | `salesforce-mcp-server-darwin-amd64` |
-| macOS (ARM) | `salesforce-mcp-server-darwin-arm64` |
-| Windows | `salesforce-mcp-server-windows-amd64.exe` |
+| Linux (x64) | `salesforce-mcp-server-linux-amd64.tar.gz` |
+| Linux (ARM64) | `salesforce-mcp-server-linux-arm64.tar.gz` |
+| macOS (ARM64) | `salesforce-mcp-server-darwin-arm64.tar.gz` |
+| Windows (x64) | `salesforce-mcp-server-windows-amd64.zip` |
 
 Verify checksum:
 ```bash
-sha256sum -c salesforce-mcp-server-linux-amd64.sha256
+# Download checksums-sha256.txt from the release
+sha256sum -c checksums-sha256.txt
 ```
 
 ### Option 4: From Source
