@@ -14,23 +14,23 @@ install-dev:
 
 # Run the server in stdio mode (for Claude Desktop)
 run:
-    uv run python -m salesforce_mcp_server.server stdio
+    uv run salesforce-mcp-server --transport stdio
 
 # Run the server with DEBUG logging
 run-debug:
-    LOG_LEVEL=DEBUG uv run python -m salesforce_mcp_server.server stdio
+    LOG_LEVEL=DEBUG uv run salesforce-mcp-server --transport stdio
 
 # Run the server with WARNING logging (quieter)
 run-quiet:
-    LOG_LEVEL=WARNING uv run python -m salesforce_mcp_server.server stdio
+    LOG_LEVEL=WARNING uv run salesforce-mcp-server --transport stdio
 
 # Run the server in HTTP mode (for web clients)
 run-http:
-    uv run python -m salesforce_mcp_server.server streamable-http
+    uv run salesforce-mcp-server --transport http
 
 # Run the server in HTTP mode with DEBUG logging
 run-http-debug:
-    LOG_LEVEL=DEBUG uv run python -m salesforce_mcp_server.server streamable-http
+    LOG_LEVEL=DEBUG uv run salesforce-mcp-server --transport http
 
 # Run with MCP Inspector for debugging
 inspector:
@@ -83,9 +83,9 @@ tools:
 
 # === Docker ===
 
-# Build Docker image
-docker-build:
-    docker build -t salesforce-mcp-server .
+# Build Docker image (VERSION arg required for setuptools-scm)
+docker-build version="0.0.0-dev":
+    docker build --build-arg VERSION={{version}} -t salesforce-mcp-server .
 
 # Run in Docker (HTTP mode)
 docker-run:
@@ -93,7 +93,7 @@ docker-run:
 
 # Run in Docker (STDIO mode)
 docker-run-stdio:
-    docker run -i --env-file .env salesforce-mcp-server stdio
+    docker run -i --env-file .env salesforce-mcp-server --transport stdio
 
 # === Binary Build ===
 
