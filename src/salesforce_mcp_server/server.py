@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
+import signal
 import sys
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, AsyncIterator
@@ -23,7 +25,7 @@ from .tools import (
 )
 
 if TYPE_CHECKING:
-    from fastmcp.server.auth import AuthConfig
+    from fastmcp.server.auth import AuthProvider
 
 load_dotenv()
 setup_logging()
@@ -109,7 +111,7 @@ async def app_lifespan(mcp: FastMCP) -> AsyncIterator[AppContext]:
         logger.info("Server shutdown complete")
 
 
-def _create_http_auth(config: ServerConfig) -> "AuthConfig":
+def _create_http_auth(config: ServerConfig) -> "AuthProvider":
     """Create auth configuration for HTTP mode with full OAuth support.
 
     Uses OAuthProxy to provide Dynamic Client Registration (DCR) for MCP clients
@@ -191,7 +193,7 @@ def create_server(transport: str = "stdio") -> FastMCP:
     config = get_config()
 
     # Configure auth for HTTP mode
-    auth: "AuthConfig | None" = None
+    auth: "AuthProvider | None" = None
     if transport == "streamable-http":
         auth = _create_http_auth(config)
 
@@ -218,26 +220,50 @@ def create_server(transport: str = "stdio") -> FastMCP:
 mcp = create_server("stdio")
 
 
+async def run_server_async(transport: str, port: int) -> None:
+    """Run the server with graceful shutdown support.
+
+    Args:
+        transport: Transport mode ('stdio' or 'streamable-http')
+        port: Port number for HTTP transport
+    """
+    server = create_server(transport)
+
+    def handle_shutdown(sig: signal.Signals) -> None:
+        logger.info("Received signal %s, initiating shutdown...", sig.name)
+
+    # Set up signal handlers
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, handle_shutdown, sig)
+        except NotImplementedError:
+            # Windows doesn't support add_signal_handler for SIGTERM
+            pass
+
+    logger.info("Starting server with transport: %s", transport)
+
+    try:
+        if transport == "streamable-http":
+            await server.run_async(transport="streamable-http", port=port)
+        else:
+            await server.run_async(transport="stdio")
+    except asyncio.CancelledError:
+        logger.info("Server task cancelled")
+
+
 def main() -> None:
     """Main entry point for the server."""
     transport = "stdio"
     if len(sys.argv) > 1:
         transport = sys.argv[1]
 
-    logger.info("Starting server with transport: %s", transport)
-
-    # Create server with appropriate transport configuration
-    server = create_server(transport)
-
-    # Get port from environment
     port = int(os.getenv("FASTMCP_PORT", "8000"))
 
     try:
-        if transport == "streamable-http":
-            server.run(transport="streamable-http", port=port)
-        else:
-            server.run(transport="stdio")
+        asyncio.run(run_server_async(transport, port))
     except KeyboardInterrupt:
+        # Fallback for platforms where signal handlers don't work
         logger.info("Server stopped by user")
 
 
