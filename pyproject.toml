@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "salesforce-mcp-server"
+dynamic = ["version"]
+description = "Salesforce MCP Server with multi-user OAuth PKCE support for AI agents"
+readme = "README.md"
+requires-python = ">=3.14"
+keywords = [
+    "salesforce",
+    "mcp",
+    "model-context-protocol",
+    "oauth",
+    "pkce",
+    "ai-agent",
+    "claude",
+    "llm",
+    "api",
+    "crm",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "aiofiles>=25.1.0",
+    "cryptography>=46.0.4",
+    "fastmcp>=2.14.4",
+    "httpx>=0.28.1",
+    "mcp>=1.26.0",
+    "msgspec>=0.20.0",
+    "py-key-value-aio[redis]>=0.3.0",
+    "python-dotenv>=1.2.1",
+    "simple-salesforce>=1.12.9",
+]
+
+[project.scripts]
+salesforce-mcp-server = "salesforce_mcp_server.server:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.14.14",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/salesforce_mcp_server/_version.py"
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
