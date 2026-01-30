@@ -1,5 +1,8 @@
 # Salesforce MCP Server
 
+[![Release](https://img.shields.io/github/v/release/hypn4/salesforce-mcp-server)](https://github.com/hypn4/salesforce-mcp-server/releases)
+[![Container](https://img.shields.io/badge/Container-ghcr.io-blue)](https://ghcr.io/hypn4/salesforce-mcp-server)
+
 A Model Context Protocol (MCP) server that provides Salesforce integration for AI agents with multi-user OAuth 2.0 PKCE authentication support.
 
 ## Features
@@ -28,6 +31,50 @@ A Model Context Protocol (MCP) server that provides Salesforce integration for A
 
 ## Installation
 
+### Option 1: uvx (Recommended)
+
+```bash
+uvx salesforce-mcp-server stdio
+# or for HTTP mode:
+uvx salesforce-mcp-server streamable-http
+```
+
+### Option 2: Docker
+
+```bash
+docker pull ghcr.io/hypn4/salesforce-mcp-server
+
+# HTTP mode (default)
+docker run -p 8000:8000 \
+  -e SALESFORCE_CLIENT_ID=your_client_id \
+  -e SALESFORCE_LOGIN_URL=https://login.salesforce.com \
+  ghcr.io/hypn4/salesforce-mcp-server
+
+# STDIO mode
+docker run -i \
+  -e SALESFORCE_ACCESS_TOKEN=your_token \
+  -e SALESFORCE_INSTANCE_URL=https://your-domain.my.salesforce.com \
+  ghcr.io/hypn4/salesforce-mcp-server stdio
+```
+
+### Option 3: Pre-built Binary
+
+Download from [GitHub Releases](https://github.com/hypn4/salesforce-mcp-server/releases):
+
+| Platform | Download |
+|----------|----------|
+| Linux (x64) | `salesforce-mcp-server-linux-amd64` |
+| macOS (x64) | `salesforce-mcp-server-darwin-amd64` |
+| macOS (ARM) | `salesforce-mcp-server-darwin-arm64` |
+| Windows | `salesforce-mcp-server-windows-amd64.exe` |
+
+Verify checksum:
+```bash
+sha256sum -c salesforce-mcp-server-linux-amd64.sha256
+```
+
+### Option 4: From Source
+
 ```bash
 git clone https://github.com/hypn4/salesforce-mcp-server.git
 cd salesforce-mcp-server
@@ -44,8 +91,13 @@ All configuration is done through environment variables. Copy `.env.example` to 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `FASTMCP_PORT` | `8000` | HTTP server port |
-| `FASTMCP_BASE_URL` | `http://localhost:8000` | Base URL for OAuth callbacks |
+| `PORT` | `8000` | HTTP server port (cloud platform standard) |
+| `FASTMCP_PORT` | - | HTTP server port (fallback, for backwards compatibility) |
+| `FASTMCP_BASE_URL` | `http://localhost:{PORT}` | Base URL for OAuth callbacks |
+
+> **Port Priority**: `PORT` → `FASTMCP_PORT` → `8000` (default)
+>
+> Cloud platforms (Heroku, Cloud Run, Railway, etc.) automatically set the `PORT` environment variable.
 
 ### OAuth Redirect Configuration
 
@@ -127,24 +179,9 @@ Config file location:
 - macOS/Linux: `~/.config/claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-**STDIO Mode (Recommended)**
+**HTTP Mode (Recommended)**
 
-```json
-{
-  "mcpServers": {
-    "salesforce": {
-      "command": "uvx",
-      "args": ["salesforce-mcp-server", "stdio"],
-      "env": {
-        "SALESFORCE_ACCESS_TOKEN": "00D...",
-        "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com"
-      }
-    }
-  }
-}
-```
-
-**HTTP Mode**
+> HTTP mode supports OAuth 2.0 PKCE for secure browser-based authentication.
 
 First, start the server:
 ```bash
@@ -162,15 +199,9 @@ Then configure Claude Desktop:
 }
 ```
 
----
+**STDIO Mode**
 
-### Claude Code
-
-Config file location:
-- Global: `~/.claude/settings.json`
-- Project: `.mcp.json`
-
-**STDIO Mode (Recommended)**
+> STDIO mode does not support OAuth flow. You must provide an Access Token directly.
 
 ```json
 {
@@ -187,7 +218,17 @@ Config file location:
 }
 ```
 
-**HTTP Mode**
+---
+
+### Claude Code
+
+Config file location:
+- Global: `~/.claude/settings.json`
+- Project: `.mcp.json`
+
+**HTTP Mode (Recommended)**
+
+> HTTP mode supports OAuth 2.0 PKCE for secure browser-based authentication.
 
 First, start the server:
 ```bash
@@ -201,6 +242,25 @@ Then configure Claude Code:
     "salesforce": {
       "type": "http",
       "url": "http://localhost:8000/mcp"
+    }
+  }
+}
+```
+
+**STDIO Mode**
+
+> STDIO mode does not support OAuth flow. You must provide an Access Token directly.
+
+```json
+{
+  "mcpServers": {
+    "salesforce": {
+      "command": "uvx",
+      "args": ["salesforce-mcp-server", "stdio"],
+      "env": {
+        "SALESFORCE_ACCESS_TOKEN": "00D...",
+        "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com"
+      }
     }
   }
 }
@@ -292,44 +352,6 @@ HTTP mode default endpoint: `http://localhost:8000`
 7. Enable **Require Proof Key for Code Exchange (PKCE) Extension for Supported Authorization Flows**
 8. Save and copy the **Consumer Key** (this is your `SALESFORCE_CLIENT_ID`)
 
-## Available Tools Reference
-
-### Query Tools
-
-| Tool | Description |
-|------|-------------|
-| `salesforce_query` | Execute a SOQL query against Salesforce |
-| `salesforce_query_all` | Execute a SOQL query including deleted and archived records |
-| `salesforce_query_more` | Fetch additional records from a paginated query result |
-| `salesforce_search` | Execute a SOSL full-text search |
-
-### Record Tools
-
-| Tool | Description |
-|------|-------------|
-| `salesforce_get_record` | Get a single record by ID |
-| `salesforce_create_record` | Create a new record |
-| `salesforce_update_record` | Update an existing record |
-| `salesforce_delete_record` | Delete a record |
-| `salesforce_upsert_record` | Upsert a record using an external ID field |
-
-### Metadata Tools
-
-| Tool | Description |
-|------|-------------|
-| `salesforce_describe_object` | Get metadata for an SObject (fields, relationships, etc.) |
-| `salesforce_list_objects` | List all available SObjects in the org |
-| `salesforce_get_object_fields` | Get field information for an SObject |
-
-### Bulk API Tools
-
-| Tool | Description |
-|------|-------------|
-| `salesforce_bulk_query` | Execute a bulk query for large data sets (>2,000 records) |
-| `salesforce_bulk_insert` | Insert multiple records efficiently |
-| `salesforce_bulk_update` | Update multiple records efficiently |
-| `salesforce_bulk_delete` | Delete multiple records efficiently |
-
 ## Development
 
 ### Commands
@@ -346,6 +368,10 @@ HTTP mode default endpoint: `http://localhost:8000`
 | `just fmt` | Format code |
 | `just inspector` | Run with MCP Inspector for debugging |
 | `just tools` | List all registered MCP tools |
+| `just docker-build` | Build Docker image |
+| `just docker-run` | Run in Docker (HTTP mode) |
+| `just docker-run-stdio` | Run in Docker (STDIO mode) |
+| `just build-binary` | Build standalone binary |
 
 ### Project Structure
 
