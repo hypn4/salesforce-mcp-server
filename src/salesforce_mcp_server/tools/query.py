@@ -4,6 +4,7 @@ from typing import Any
 
 from fastmcp import Context, FastMCP
 
+from ..errors import AuthenticationError
 from ..logging_config import get_logger
 from ..oauth.token_access import get_salesforce_token
 from ..salesforce.client_manager import SalesforceClientManager
@@ -40,7 +41,9 @@ def register_query_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_query called without authentication")
-            return {"error": "Authentication required", "success": False}
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info("salesforce_query: user_id=%s", token_info.user_id)
         logger.debug("SOQL: %s", soql[:200])
@@ -69,7 +72,9 @@ def register_query_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_query_all called without authentication")
-            return {"error": "Authentication required", "success": False}
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info("salesforce_query_all: user_id=%s", token_info.user_id)
         logger.debug("SOQL: %s", soql[:200])
@@ -98,7 +103,9 @@ def register_query_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_query_more called without authentication")
-            return {"error": "Authentication required", "success": False}
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info("salesforce_query_more: user_id=%s", token_info.user_id)
         client = await client_manager.get_client(token_info)
@@ -125,7 +132,9 @@ def register_query_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_search called without authentication")
-            return [{"error": "Authentication required", "success": False}]
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info("salesforce_search: user_id=%s", token_info.user_id)
         logger.debug("SOSL: %s", sosl[:200])

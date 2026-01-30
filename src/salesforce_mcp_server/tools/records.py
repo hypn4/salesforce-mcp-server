@@ -4,6 +4,7 @@ from typing import Any
 
 from fastmcp import Context, FastMCP
 
+from ..errors import AuthenticationError
 from ..logging_config import get_logger
 from ..oauth.token_access import get_salesforce_token
 from ..salesforce.client_manager import SalesforceClientManager
@@ -39,7 +40,9 @@ def register_record_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_get_record called without authentication")
-            return {"error": "Authentication required", "success": False}
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_get_record called: user_id=%s, sobject=%s, record_id=%s",
@@ -76,7 +79,9 @@ def register_record_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_create_record called without authentication")
-            return {"error": "Authentication required", "success": False}
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_create_record called: user_id=%s, sobject=%s",
@@ -111,7 +116,9 @@ def register_record_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_update_record called without authentication")
-            return {"error": "Authentication required", "success": False}
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_update_record called: user_id=%s, sobject=%s, record_id=%s",
@@ -144,7 +151,9 @@ def register_record_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_delete_record called without authentication")
-            return {"error": "Authentication required", "success": False}
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_delete_record called: user_id=%s, sobject=%s, record_id=%s",
@@ -183,7 +192,9 @@ def register_record_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_upsert_record called without authentication")
-            return {"error": "Authentication required", "success": False}
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_upsert_record: user_id=%s, sobject=%s, ext_id=%s",

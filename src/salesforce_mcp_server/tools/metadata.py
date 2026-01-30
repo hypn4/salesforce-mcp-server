@@ -4,6 +4,7 @@ from typing import Any
 
 from fastmcp import Context, FastMCP
 
+from ..errors import AuthenticationError
 from ..logging_config import get_logger
 from ..oauth.token_access import get_salesforce_token
 from ..salesforce.client_manager import SalesforceClientManager
@@ -44,7 +45,9 @@ def register_metadata_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_describe_object called without authentication")
-            return {"error": "Authentication required", "success": False}
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_describe_object called: user_id=%s, sobject=%s",
@@ -81,7 +84,9 @@ def register_metadata_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_list_objects called without authentication")
-            return [{"error": "Authentication required", "success": False}]
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info("salesforce_list_objects called: user_id=%s", token_info.user_id)
         client = await client_manager.get_client(token_info)
@@ -119,7 +124,9 @@ def register_metadata_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_get_object_fields called without authentication")
-            return [{"error": "Authentication required", "success": False}]
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_get_object_fields called: user_id=%s, sobject=%s",

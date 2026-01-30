@@ -4,6 +4,7 @@ from typing import Any
 
 from fastmcp import Context, FastMCP
 
+from ..errors import AuthenticationError
 from ..logging_config import get_logger
 from ..oauth.token_access import get_salesforce_token
 from ..salesforce.client_manager import SalesforceClientManager
@@ -39,7 +40,9 @@ def register_bulk_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_bulk_query called without authentication")
-            return [{"error": "Authentication required", "success": False}]
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_bulk_query called: user_id=%s, sobject=%s",
@@ -80,7 +83,9 @@ def register_bulk_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_bulk_insert called without authentication")
-            return [{"error": "Authentication required", "success": False}]
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_bulk_insert called: user_id=%s, sobject=%s, record_count=%d",
@@ -120,7 +125,9 @@ def register_bulk_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_bulk_update called without authentication")
-            return [{"error": "Authentication required", "success": False}]
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_bulk_update called: user_id=%s, sobject=%s, record_count=%d",
@@ -156,7 +163,9 @@ def register_bulk_tools(mcp: FastMCP) -> None:
         token_info = get_salesforce_token()
         if token_info is None:
             logger.error("salesforce_bulk_delete called without authentication")
-            return [{"error": "Authentication required", "success": False}]
+            raise AuthenticationError(
+                "Authentication required. Please authenticate with Salesforce first."
+            )
 
         logger.info(
             "salesforce_bulk_delete called: user_id=%s, sobject=%s, record_count=%d",
