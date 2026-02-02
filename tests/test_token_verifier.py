@@ -93,9 +93,13 @@ class TestSalesforceTokenVerifier:
         mock_client.aclose.assert_called_once()
         assert verifier._http_client is None
 
-    def test_default_instance_url(self, verifier):
+    def test_default_instance_url(self):
         """Test default instance URL."""
-        assert verifier._default_instance_url == "https://login.salesforce.com"
+        with patch.dict(os.environ, {}, clear=True):
+            # Ensure SALESFORCE_INSTANCE_URL is not set
+            os.environ.pop("SALESFORCE_INSTANCE_URL", None)
+            v = SalesforceTokenVerifier()
+            assert v._default_instance_url == "https://login.salesforce.com"
 
     def test_custom_instance_url_from_env(self):
         """Test instance URL from environment variable."""

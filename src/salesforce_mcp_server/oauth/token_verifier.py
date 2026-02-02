@@ -1,7 +1,12 @@
-"""Salesforce token verification for FastMCP OAuthProxy.
+"""Salesforce token verification for FastMCP.
 
-This module implements the TokenVerifier protocol for FastMCP's OAuthProxy,
-enabling Salesforce OAuth 2.0 PKCE authentication for MCP clients.
+This module implements the TokenVerifier protocol for FastMCP,
+enabling Bearer token authentication for Salesforce MCP clients.
+Clients handle OAuth authentication themselves (ADK agents use
+auth_scheme/auth_credential, Claude/Gemini use mcp-remote).
+
+Guest tokens allow unauthenticated MCP discovery while requiring
+authentication for actual tool execution.
 """
 
 from __future__ import annotations
@@ -18,11 +23,13 @@ logger = get_logger("oauth.token_verifier")
 
 
 class SalesforceTokenVerifier(TokenVerifier):
-    """FastMCP TokenVerifier protocol implementation for Salesforce.
+    """TokenVerifier that allows unauthenticated discovery requests.
 
-    This verifier implements the async verify_token interface required by
-    FastMCP's OAuthProxy. It validates Salesforce access tokens by calling
-    the Salesforce userinfo endpoint.
+    - For valid tokens: Returns AccessToken with Salesforce credentials
+    - For invalid/missing tokens: Returns guest AccessToken (allows discovery)
+
+    Guest tokens have sf_access_token=None, so get_salesforce_token() returns None,
+    and tools raise AuthenticationError as expected.
 
     Instance URL priority:
     1. X-Salesforce-Instance-URL HTTP header (per-request)
@@ -67,16 +74,23 @@ class SalesforceTokenVerifier(TokenVerifier):
         return self._default_instance_url
 
     async def verify_token(self, token: str) -> AccessToken | None:
-        """Verify Salesforce token and return FastMCP AccessToken.
+        """Verify Salesforce token and return AccessToken.
 
-        This implements the FastMCP TokenVerifier protocol (async).
+        Returns guest AccessToken for missing/invalid tokens to allow
+        MCP discovery while requiring auth for actual tool calls.
 
         Args:
             token: Salesforce access token from Authorization header
 
         Returns:
-            AccessToken with user claims if valid, None if invalid
+            AccessToken with user claims if valid, guest AccessToken otherwise
         """
+        # Empty token -> guest access for discovery
+        if not token or not token.strip():
+            logger.debug("No token provided, returning guest access for discovery")
+            return self._create_guest_token()
+
+        # Try to verify with Salesforce
         token_preview = token[:30] + "..." if len(token) > 30 else token
         logger.info("verify_token called: token_preview=%s", token_preview)
 
@@ -92,9 +106,10 @@ class SalesforceTokenVerifier(TokenVerifier):
 
             if response.status_code != 200:
                 logger.warning(
-                    "Token verification failed: status=%d", response.status_code
+                    "Token verification failed: status=%d, returning guest access",
+                    response.status_code,
                 )
-                return None
+                return self._create_guest_token()
 
             data = msgspec.json.decode(response.content)
 
@@ -108,15 +123,35 @@ class SalesforceTokenVerifier(TokenVerifier):
                     "org_id": data["organization_id"],
                     "username": data.get("preferred_username", data.get("sub", "")),
                     "instance_url": instance_url,
-                    "sf_access_token": token,
+                    "sf_access_token": token,  # Valid Salesforce token
                 },
             )
             logger.info("Token verified: user_id=%s", access_token.claims["user_id"])
             return access_token
 
         except (httpx.HTTPError, KeyError, msgspec.DecodeError) as e:
-            logger.error("Token verification error: %s", e)
-            return None
+            logger.error("Token verification error: %s, returning guest access", e)
+            return self._create_guest_token()
+
+    def _create_guest_token(self) -> AccessToken:
+        """Create guest AccessToken for unauthenticated discovery.
+
+        Guest tokens allow MCP connection but get_salesforce_token()
+        returns None for them, causing tools to raise AuthenticationError.
+        """
+        return AccessToken(
+            token="",
+            client_id="guest",
+            scopes=[],
+            expires_at=None,
+            claims={
+                "user_id": "guest",
+                "org_id": "",
+                "username": "guest",
+                "instance_url": self._default_instance_url,
+                "sf_access_token": None,  # No valid SF token -> tools will reject
+            },
+        )
 
     async def close(self) -> None:
         """Close the async HTTP client."""
