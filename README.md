@@ -3,16 +3,16 @@
 [![Release](https://img.shields.io/github/v/release/hypn4/salesforce-mcp-server)](https://github.com/hypn4/salesforce-mcp-server/releases)
 [![Container](https://img.shields.io/badge/Container-ghcr.io-blue)](https://ghcr.io/hypn4/salesforce-mcp-server)
 
-A Model Context Protocol (MCP) server that provides Salesforce integration for AI agents with multi-user OAuth 2.0 PKCE authentication support.
+A Model Context Protocol (MCP) server that provides Salesforce integration for AI agents with flexible OAuth authentication.
 
 ## Features
 
-- **Multi-user OAuth 2.0 with PKCE** - Secure authentication without storing client secrets
+- **Dual OAuth modes** - Bearer token validation or full OAuth 2.1 proxy
 - **16 MCP tools** across 4 categories for comprehensive Salesforce operations
 - **Per-user Salesforce client caching** - Efficient connection management
-- **Configurable storage backend** - Memory (default) or Redis for production deployments
-- **Optional Fernet encryption** - Encrypt stored OAuth data at rest
-- **Dual transport modes** - STDIO for local clients, HTTP for web-based OAuth flows
+- **Dual transport modes** - STDIO for local clients, HTTP for multi-user deployments
+- **RFC-compliant OAuth** - RFC 8414, RFC 9728, RFC 7591, PKCE support
+- **Client OAuth flexibility** - ADK agents, Claude Code, Gemini CLI all supported
 
 ### Available Tools
 
@@ -88,51 +88,72 @@ uv sync
 
 All configuration is done through environment variables. Copy `.env.example` to `.env` and adjust as needed.
 
+### OAuth Mode
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OAUTH_MODE` | `bearer` | `bearer` for client-handled OAuth, `proxy` for server OAuth proxy |
+
+#### Bearer Mode (Default)
+
+Clients handle OAuth themselves. The server validates Bearer tokens via Salesforce userinfo endpoint.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SALESFORCE_INSTANCE_URL` | `https://login.salesforce.com` | Token verification URL |
+
+#### Proxy Mode
+
+Server acts as OAuth 2.1 + PKCE proxy to Salesforce. Provides RFC-compliant endpoints:
+- `/.well-known/oauth-authorization-server` (RFC 8414)
+- `/.well-known/oauth-protected-resource` (RFC 9728)
+- `/register` (RFC 7591 Dynamic Client Registration)
+- `/authorize`, `/token`, `/auth/callback` (OAuth 2.1 + PKCE)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SALESFORCE_CLIENT_ID` | Yes | Salesforce Connected App client ID |
+| `SALESFORCE_CLIENT_SECRET` | No | Client secret (optional, see modes below) |
+| `SALESFORCE_LOGIN_URL` | No | Login URL (default: `https://login.salesforce.com`) |
+| `BASE_URL` | No | Public URL of the server (default: `http://localhost:8000`) |
+| `OAUTH_REQUIRED_SCOPES` | No | Comma-separated scopes (default: `api,refresh_token`) |
+
+**Authentication Modes**
+
+| Mode | `SALESFORCE_CLIENT_SECRET` | Use Case |
+|------|----------------------------|----------|
+| **Confidential Client** | Set | Server-side apps where secret can be stored securely |
+| **PKCE-only (Public Client)** | Empty/Unset | CLI tools, mobile apps, or when secret storage isn't possible |
+
+For PKCE-only mode, configure your Salesforce Connected App:
+- ✅ Enable "Require Proof Key for Code Exchange (PKCE)"
+- ❌ Disable "Require Secret for Web Server Flow"
+
+**Storage Configuration (Proxy Mode)**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OAUTH_STORAGE_TYPE` | `memory` | `memory` or `redis` |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
+| `STORAGE_ENCRYPTION_KEY` | - | Fernet key for token encryption |
+
 ### HTTP Server Settings
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8000` | HTTP server port (cloud platform standard) |
 | `FASTMCP_PORT` | - | HTTP server port (fallback, for backwards compatibility) |
-| `FASTMCP_BASE_URL` | `http://localhost:{PORT}` | Base URL for OAuth callbacks |
 
 > **Port Priority**: `PORT` → `FASTMCP_PORT` → `8000` (default)
 >
 > Cloud platforms (Heroku, Cloud Run, Railway, etc.) automatically set the `PORT` environment variable.
 
-### OAuth Redirect Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OAUTH_REDIRECT_PATH` | `/auth/callback` | OAuth callback path |
-| `OAUTH_ALLOWED_CLIENT_REDIRECT_URIS` | (empty) | Comma-separated allowed client redirect URIs |
-
-### Salesforce OAuth (Required)
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SALESFORCE_CLIENT_ID` | Yes | Connected App Consumer Key |
-| `SALESFORCE_CLIENT_SECRET` | No | Client secret (leave empty for PKCE-only) |
-
 ### Salesforce Instance
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SALESFORCE_LOGIN_URL` | `https://login.salesforce.com` | Authorization server (use `https://test.salesforce.com` for sandbox) |
-| `SALESFORCE_INSTANCE_URL` | `https://login.salesforce.com` | API calls and token verification URL |
-
-### OAuth Storage Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OAUTH_STORAGE_TYPE` | `memory` | Storage type: `memory` or `redis` |
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL (if using redis) |
-| `STORAGE_ENCRYPTION_KEY` | (empty) | Fernet encryption key for stored data |
-
-Generate an encryption key with:
-```bash
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
+| `SALESFORCE_LOGIN_URL` | `https://login.salesforce.com` | For sandbox use `https://test.salesforce.com` |
+| `SALESFORCE_INSTANCE_URL` | `https://login.salesforce.com` | Token verification URL (userinfo endpoint) |
 
 ### Logging
 
@@ -142,15 +163,53 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 ## MCP Integration Guide
 
-### Transport Modes and Authentication
+### Authentication Modes
+
+This server supports two OAuth modes:
+
+#### Bearer Token Mode (Default)
+
+Standard MCP authentication pattern (like GitHub, Stripe MCP servers):
+
+- **Server**: Validates Bearer tokens via Salesforce userinfo endpoint
+- **Clients**: Handle OAuth authentication themselves
+
+| Client Type | OAuth Handling |
+|-------------|----------------|
+| **ADK Agents** | Use `auth_scheme` + `auth_credential` in McpToolset |
+| **Claude Desktop/Code/Gemini CLI** | Static access token via environment variables (STDIO Mode) |
+
+#### OAuth Proxy Mode
+
+Full OAuth 2.1 + PKCE proxy with RFC-compliant discovery:
+
+- **Server**: Handles complete OAuth flow with Salesforce
+- **Clients**: Use standard OAuth discovery (automatic with compatible clients)
+
+| Client Type | OAuth Handling |
+|-------------|----------------|
+| **Claude Desktop** | Native OAuth discovery (automatic) |
+| **Claude Code** | Native OAuth discovery (automatic) |
+| **Gemini CLI** | Native OAuth discovery (automatic) |
+| **ADK Agents** | StreamableHTTPConnectionParams with Bearer token |
+
+To enable proxy mode:
+```bash
+export OAUTH_MODE=proxy
+export SALESFORCE_CLIENT_ID=your_client_id
+export BASE_URL=https://your-server.com
+
+# Optional: Add client_secret for confidential client mode
+# Omit for PKCE-only (public client) mode
+export SALESFORCE_CLIENT_SECRET=your_client_secret
+```
+
+### Transport Modes
 
 | Mode | Authentication | Use Case |
 |------|----------------|----------|
-| **STDIO** | Access Token (env vars) | Claude Desktop, Claude Code |
-| **HTTP** | OAuth 2.0 PKCE | Gemini CLI, Web clients |
-
-> **Note**: STDIO mode does not support OAuth flow.
-> You must provide an Access Token via environment variables.
+| **STDIO** | Access Token (env vars) | Local development, single-user |
+| **HTTP** | Bearer Token (Authorization header) | Multi-user, web-based clients |
 
 ### STDIO Mode Environment Variables
 
@@ -180,16 +239,24 @@ Config file location:
 - macOS/Linux: `~/.config/claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-**HTTP Mode (Recommended)**
+**OAuth Proxy Mode (Recommended)**
 
-> HTTP mode supports OAuth 2.0 PKCE for secure browser-based authentication.
+Native OAuth 2.1 + PKCE - no additional tools required.
 
-First, start the server:
+1. Configure the server for proxy mode:
+```bash
+export OAUTH_MODE=proxy
+export SALESFORCE_CLIENT_ID=your_connected_app_client_id
+export BASE_URL=http://localhost:8000
+# Optional: SALESFORCE_CLIENT_SECRET for confidential client mode
+```
+
+2. Start the server:
 ```bash
 uvx salesforce-mcp-server --transport http
 ```
 
-Then configure Claude Desktop:
+3. Configure Claude Desktop:
 ```json
 {
   "mcpServers": {
@@ -200,9 +267,9 @@ Then configure Claude Desktop:
 }
 ```
 
-**STDIO Mode**
+Claude Desktop will automatically discover OAuth endpoints and initiate authentication when you first use a Salesforce tool.
 
-> STDIO mode does not support OAuth flow. You must provide an Access Token directly.
+**STDIO Mode (Static Token)**
 
 ```json
 {
@@ -227,30 +294,36 @@ Config file location:
 - Global: `~/.claude/settings.json`
 - Project: `.mcp.json`
 
-**HTTP Mode (Recommended)**
+**OAuth Proxy Mode (Recommended)**
 
-> HTTP mode supports OAuth 2.0 PKCE for secure browser-based authentication.
+Native OAuth 2.1 + PKCE - no additional tools required.
 
-First, start the server:
+1. Configure the server (see Configuration section above)
+
+2. Start the server:
 ```bash
 uvx salesforce-mcp-server --transport http
 ```
 
-Then configure Claude Code:
+3. Add the MCP server:
+```bash
+claude mcp add salesforce --transport http http://localhost:8000/mcp
+```
+
+Or configure manually in `~/.claude/settings.json` or `.mcp.json`:
 ```json
 {
   "mcpServers": {
     "salesforce": {
-      "type": "http",
       "url": "http://localhost:8000/mcp"
     }
   }
 }
 ```
 
-**STDIO Mode**
+Claude Code will automatically discover OAuth endpoints via RFC 8414 metadata.
 
-> STDIO mode does not support OAuth flow. You must provide an Access Token directly.
+**STDIO Mode (Static Token)**
 
 ```json
 {
@@ -273,34 +346,36 @@ Then configure Claude Code:
 
 Config file: `~/.gemini/settings.json`
 
-**HTTP Mode with OAuth (Recommended)**
+**OAuth Proxy Mode (Recommended)**
 
-First, start the server with environment variables:
+Native OAuth discovery - Gemini CLI auto-discovers OAuth endpoints.
+
+1. Configure the server (see Configuration section above)
+
+2. Start the server:
 ```bash
-SALESFORCE_CLIENT_ID=your_client_id \
-SALESFORCE_LOGIN_URL=https://login.salesforce.com \
-SALESFORCE_INSTANCE_URL=https://your-domain.my.salesforce.com \
 uvx salesforce-mcp-server --transport http
 ```
 
-Then configure Gemini CLI:
+3. Add the MCP server:
+```bash
+gemini mcp add salesforce http://localhost:8000/mcp
+```
+
+Or configure manually in `~/.gemini/settings.json`:
 ```json
 {
   "mcpServers": {
     "salesforce": {
-      "httpUrl": "http://localhost:8000/mcp",
-      "authProvider": "dynamic_discovery"
+      "url": "http://localhost:8000/mcp"
     }
   }
 }
 ```
 
-Gemini CLI uses HTTP mode with OAuth 2.0 Dynamic Client Registration. The OAuth flow is handled automatically when you first use a Salesforce tool.
+Gemini CLI will automatically discover OAuth endpoints and initiate authentication.
 
-**STDIO Mode**
-
-> **Warning**: STDIO mode does not support OAuth. You must provide an Access Token directly.
-> Use HTTP Mode above if you need OAuth authentication.
+**STDIO Mode (Static Token)**
 
 ```json
 {
@@ -385,9 +460,12 @@ salesforce-mcp-server/
 │   │   ├── records.py     # Record CRUD tools
 │   │   ├── metadata.py    # Metadata tools
 │   │   └── bulk.py        # Bulk API tools
-│   ├── oauth/             # OAuth handling
-│   │   ├── storage.py     # Storage backends
-│   │   └── token_*.py     # Token management
+│   ├── oauth/             # OAuth authentication
+│   │   ├── proxy.py           # OAuth 2.1 proxy for Salesforce
+│   │   ├── token_verifier.py  # Salesforce token validation
+│   │   ├── token_access.py    # Token access utilities
+│   │   ├── storage.py         # Token storage backends
+│   │   └── pkce.py            # PKCE utilities
 │   └── salesforce/        # Salesforce client
 ├── tests/
 ├── .env.example
