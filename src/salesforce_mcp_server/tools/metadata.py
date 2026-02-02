@@ -2,13 +2,10 @@
 
 from typing import Any
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 
-from ..errors import AuthenticationError
+from ..helpers import get_operations
 from ..logging_config import get_logger
-from ..oauth.token_access import get_salesforce_token
-from ..salesforce.client_manager import SalesforceClientManager
-from ..salesforce.operations import SalesforceOperations
 
 logger = get_logger("tools.metadata")
 
@@ -18,7 +15,6 @@ def register_metadata_tools(mcp: FastMCP) -> None:
 
     @mcp.tool()
     async def salesforce_describe_object(
-        ctx: Context,
         sobject: str,
     ) -> dict[str, Any]:
         """Get metadata for a Salesforce SObject.
@@ -39,33 +35,11 @@ def register_metadata_tools(mcp: FastMCP) -> None:
             - keyPrefix: Object ID prefix
             - And more...
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_describe_object called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info(
-            "salesforce_describe_object called: user_id=%s, sobject=%s",
-            token_info.user_id,
-            sobject,
-        )
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.describe_object(sobject)
 
     @mcp.tool()
-    async def salesforce_list_objects(
-        ctx: Context,
-    ) -> list[dict[str, Any]]:
+    async def salesforce_list_objects() -> list[dict[str, Any]]:
         """List all available SObjects in the Salesforce org.
 
         Returns a list of all objects accessible to the current user,
@@ -82,28 +56,11 @@ def register_metadata_tools(mcp: FastMCP) -> None:
             - updateable: Whether records can be updated
             - deletable: Whether records can be deleted
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_list_objects called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info("salesforce_list_objects called: user_id=%s", token_info.user_id)
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.list_objects()
 
     @mcp.tool()
     async def salesforce_get_object_fields(
-        ctx: Context,
         sobject: str,
     ) -> list[dict[str, Any]]:
         """Get field information for a Salesforce SObject.
@@ -126,26 +83,6 @@ def register_metadata_tools(mcp: FastMCP) -> None:
             - picklistValues: For picklist fields, available values
             - referenceTo: For reference fields, related object(s)
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_get_object_fields called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info(
-            "salesforce_get_object_fields called: user_id=%s, sobject=%s",
-            token_info.user_id,
-            sobject,
-        )
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         metadata = ops.describe_object(sobject)
         return metadata.get("fields", [])

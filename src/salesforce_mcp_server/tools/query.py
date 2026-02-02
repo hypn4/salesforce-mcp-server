@@ -2,13 +2,10 @@
 
 from typing import Any
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 
-from ..errors import AuthenticationError
+from ..helpers import get_operations
 from ..logging_config import get_logger
-from ..oauth.token_access import get_salesforce_token
-from ..salesforce.client_manager import SalesforceClientManager
-from ..salesforce.operations import SalesforceOperations
 
 logger = get_logger("tools.query")
 
@@ -18,7 +15,6 @@ def register_query_tools(mcp: FastMCP) -> None:
 
     @mcp.tool()
     async def salesforce_query(
-        ctx: Context,
         soql: str,
         include_deleted: bool = False,
     ) -> dict[str, Any]:
@@ -35,29 +31,11 @@ def register_query_tools(mcp: FastMCP) -> None:
             - records: List of matching records
             - nextRecordsUrl: URL to fetch more records (if done is False)
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_query called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info("salesforce_query: user_id=%s", token_info.user_id)
-        logger.debug("SOQL: %s", soql[:200])
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.query(soql, include_deleted=include_deleted)
 
     @mcp.tool()
     async def salesforce_query_all(
-        ctx: Context,
         soql: str,
     ) -> dict[str, Any]:
         """Execute a SOQL query including deleted and archived records.
@@ -70,29 +48,11 @@ def register_query_tools(mcp: FastMCP) -> None:
         Returns:
             Query results including deleted/archived records
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_query_all called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info("salesforce_query_all: user_id=%s", token_info.user_id)
-        logger.debug("SOQL: %s", soql[:200])
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.query(soql, include_deleted=True)
 
     @mcp.tool()
     async def salesforce_query_more(
-        ctx: Context,
         next_records_url: str,
     ) -> dict[str, Any]:
         """Fetch additional records from a previous query.
@@ -105,28 +65,11 @@ def register_query_tools(mcp: FastMCP) -> None:
         Returns:
             Additional query results
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_query_more called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info("salesforce_query_more: user_id=%s", token_info.user_id)
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.query_more(next_records_url)
 
     @mcp.tool()
     async def salesforce_search(
-        ctx: Context,
         sosl: str,
     ) -> list[dict[str, Any]]:
         """Execute a SOSL full-text search.
@@ -138,22 +81,5 @@ def register_query_tools(mcp: FastMCP) -> None:
         Returns:
             List of matching records grouped by object type
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_search called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info("salesforce_search: user_id=%s", token_info.user_id)
-        logger.debug("SOSL: %s", sosl[:200])
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.search(sosl)

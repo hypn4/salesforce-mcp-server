@@ -2,13 +2,10 @@
 
 from typing import Any
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 
-from ..errors import AuthenticationError
+from ..helpers import get_operations
 from ..logging_config import get_logger
-from ..oauth.token_access import get_salesforce_token
-from ..salesforce.client_manager import SalesforceClientManager
-from ..salesforce.operations import SalesforceOperations
 
 logger = get_logger("tools.records")
 
@@ -18,7 +15,6 @@ def register_record_tools(mcp: FastMCP) -> None:
 
     @mcp.tool()
     async def salesforce_get_record(
-        ctx: Context,
         sobject: str,
         record_id: str,
         fields: list[str] | None = None,
@@ -34,33 +30,11 @@ def register_record_tools(mcp: FastMCP) -> None:
         Returns:
             Record data with requested fields
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_get_record called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info(
-            "salesforce_get_record called: user_id=%s, sobject=%s, record_id=%s",
-            token_info.user_id,
-            sobject,
-            record_id,
-        )
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.get_record(sobject, record_id, fields)
 
     @mcp.tool()
     async def salesforce_create_record(
-        ctx: Context,
         sobject: str,
         data: dict[str, Any],
     ) -> dict[str, Any]:
@@ -77,32 +51,11 @@ def register_record_tools(mcp: FastMCP) -> None:
             - success: Whether creation succeeded
             - errors: Any errors that occurred
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_create_record called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info(
-            "salesforce_create_record called: user_id=%s, sobject=%s",
-            token_info.user_id,
-            sobject,
-        )
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.create_record(sobject, data)
 
     @mcp.tool()
     async def salesforce_update_record(
-        ctx: Context,
         sobject: str,
         record_id: str,
         data: dict[str, Any],
@@ -118,33 +71,11 @@ def register_record_tools(mcp: FastMCP) -> None:
         Returns:
             Update result with success status
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_update_record called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info(
-            "salesforce_update_record called: user_id=%s, sobject=%s, record_id=%s",
-            token_info.user_id,
-            sobject,
-            record_id,
-        )
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.update_record(sobject, record_id, data)
 
     @mcp.tool()
     async def salesforce_delete_record(
-        ctx: Context,
         sobject: str,
         record_id: str,
     ) -> dict[str, Any]:
@@ -157,33 +88,11 @@ def register_record_tools(mcp: FastMCP) -> None:
         Returns:
             Deletion result with success status
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_delete_record called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info(
-            "salesforce_delete_record called: user_id=%s, sobject=%s, record_id=%s",
-            token_info.user_id,
-            sobject,
-            record_id,
-        )
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.delete_record(sobject, record_id)
 
     @mcp.tool()
     async def salesforce_upsert_record(
-        ctx: Context,
         sobject: str,
         external_id_field: str,
         data: dict[str, Any],
@@ -202,26 +111,5 @@ def register_record_tools(mcp: FastMCP) -> None:
         Returns:
             Upsert result with success status
         """
-        if ctx.request_context is None:
-            raise RuntimeError("Request context not available")
-        app_ctx = ctx.request_context.lifespan_context
-        if app_ctx is None:
-            raise RuntimeError("Application context not initialized")
-        client_manager: SalesforceClientManager = app_ctx.client_manager
-
-        token_info = get_salesforce_token()
-        if token_info is None:
-            logger.error("salesforce_upsert_record called without authentication")
-            raise AuthenticationError(
-                "Authentication required. Please authenticate with Salesforce first."
-            )
-
-        logger.info(
-            "salesforce_upsert_record: user_id=%s, sobject=%s, ext_id=%s",
-            token_info.user_id,
-            sobject,
-            external_id_field,
-        )
-        client = await client_manager.get_client(token_info)
-        ops = SalesforceOperations(client)
+        ops = await get_operations()
         return ops.upsert_record(sobject, external_id_field, data)
