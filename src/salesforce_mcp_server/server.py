@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 from .logging_config import get_logger, setup_logging
-from .oauth.storage import create_storage
+from .oauth.proxy import SalesforceOAuthProxy
 from .oauth.token_verifier import SalesforceTokenVerifier
 from .salesforce.client_manager import SalesforceClientManager
 from .tools import (
@@ -36,13 +36,9 @@ logger = get_logger("server")
 class ServerConfig(msgspec.Struct, kw_only=True):
     """Server configuration."""
 
-    client_id: str
-    client_secret: str | None = None
     login_url: str = "https://login.salesforce.com"
     instance_url: str = "https://login.salesforce.com"
     # HTTP server settings
-    transport: str = "stdio"
-    base_url: str = "http://localhost:8000"
     port: int = 8000
 
 
@@ -55,34 +51,24 @@ class AppContext(msgspec.Struct, kw_only=True):
 
 def get_config() -> ServerConfig:
     """Load configuration from environment variables."""
-    client_id = os.getenv("SALESFORCE_CLIENT_ID", "")
-    client_secret = os.getenv("SALESFORCE_CLIENT_SECRET")
     login_url = os.getenv("SALESFORCE_LOGIN_URL", "https://login.salesforce.com")
     instance_url = os.getenv("SALESFORCE_INSTANCE_URL", "https://login.salesforce.com")
 
     # HTTP server settings
     # Cloud platform standard: PORT first, then FASTMCP_PORT, then default
     port = int(os.getenv("PORT") or os.getenv("FASTMCP_PORT") or "8000")
-    base_url = os.getenv("FASTMCP_BASE_URL", f"http://localhost:{port}")
-
-    if client_id:
-        logger.info("Client ID configured for OAuth")
-    else:
-        logger.warning("No SALESFORCE_CLIENT_ID configured")
 
     logger.debug(
-        "Loaded config: login_url=%s, instance_url=%s",
+        "Loaded config: login_url=%s, instance_url=%s, port=%d",
         login_url,
         instance_url,
+        port,
     )
 
     return ServerConfig(
-        client_id=client_id,
-        client_secret=client_secret,
         login_url=login_url,
         instance_url=instance_url,
         port=port,
-        base_url=base_url,
     )
 
 
@@ -112,72 +98,55 @@ async def app_lifespan(mcp: FastMCP) -> AsyncIterator[AppContext]:
         logger.info("Server shutdown complete")
 
 
-def _create_http_auth(config: ServerConfig) -> "AuthProvider":
-    """Create auth configuration for HTTP mode with full OAuth support.
-
-    Uses OAuthProxy to provide Dynamic Client Registration (DCR) for MCP clients
-    like Gemini CLI that expect to register dynamically. The proxy presents a
-    DCR-compliant interface while using pre-registered Salesforce Connected App
-    credentials.
-
-    Args:
-        config: Server configuration
+def _get_oauth_mode() -> str:
+    """Get the OAuth mode from environment.
 
     Returns:
-        OAuthProxy configured for Salesforce OAuth
+        str: 'proxy' for OAuth proxy mode, 'bearer' for Bearer token mode
     """
-    from fastmcp.server.auth import OAuthProxy
+    return os.getenv("OAUTH_MODE", "bearer").lower()
 
-    logger.info("Configuring HTTP auth with OAuthProxy for Salesforce")
 
-    # OAuthProxy requires upstream_client_secret in constructor,
-    # but with token_endpoint_auth_method="none", it won't be sent.
-    # Use actual secret if available, or placeholder for PKCE-only.
-    client_secret = config.client_secret or "pkce-only-no-secret"
+def _create_http_auth() -> "AuthProvider":
+    """Create auth configuration for HTTP mode.
 
-    # Create storage backend based on environment configuration
-    storage = create_storage()
-    storage_type = os.getenv("OAUTH_STORAGE_TYPE", "memory")
-    logger.info("Using %s storage for OAuth client data", storage_type)
+    The auth mode is determined by OAUTH_MODE environment variable:
 
-    # Redirect URI configuration
-    redirect_path = os.getenv("OAUTH_REDIRECT_PATH", "/auth/callback")
+    - 'bearer' (default): Clients handle OAuth themselves, server validates
+      Bearer tokens using Salesforce userinfo endpoint. Use with:
+      - ADK agents: auth_scheme + auth_credential in McpToolset
+      - Claude Code/Gemini CLI: mcp-remote with --static-oauth-client-info
 
-    # Optional: restrict allowed client redirect URIs
-    allowed_uris_str = os.getenv("OAUTH_ALLOWED_CLIENT_REDIRECT_URIS")
-    allowed_client_redirect_uris = (
-        [uri.strip() for uri in allowed_uris_str.split(",")]
-        if allowed_uris_str
-        else None
-    )
+    - 'proxy': Server acts as OAuth 2.1 proxy to Salesforce. Provides
+      full RFC-compliant OAuth endpoints including:
+      - /.well-known/oauth-authorization-server (RFC 8414)
+      - /.well-known/oauth-protected-resource (RFC 9728)
+      - /register (RFC 7591 Dynamic Client Registration)
+      - /authorize, /token, /auth/callback (OAuth 2.1 + PKCE)
 
-    logger.info("OAuth redirect path: %s", redirect_path)
+      Requires SALESFORCE_CLIENT_ID and SALESFORCE_CLIENT_SECRET.
 
-    return OAuthProxy(
-        # Salesforce OAuth endpoints
-        upstream_authorization_endpoint=f"{config.login_url}/services/oauth2/authorize",
-        upstream_token_endpoint=f"{config.login_url}/services/oauth2/token",
-        # Salesforce Connected App credentials
-        upstream_client_id=config.client_id,
-        upstream_client_secret=client_secret,
-        # Token verifier (validates upstream Salesforce tokens)
-        token_verifier=SalesforceTokenVerifier(),
-        # MCP server configuration
-        base_url=config.base_url,
-        redirect_path=redirect_path,
-        allowed_client_redirect_uris=allowed_client_redirect_uris,
-        # Forward PKCE to Salesforce
-        forward_pkce=True,
-        # PKCE-only: "none" = public client, no client_secret sent
-        # Use "client_secret_post" if your Connected App requires secret
-        token_endpoint_auth_method="none"
-        if not config.client_secret
-        else "client_secret_post",
-        # Valid scopes for Salesforce
-        valid_scopes=["api", "refresh_token", "offline_access"],
-        # Storage backend for OAuth client data
-        client_storage=storage,
-    )
+    Returns:
+        AuthProvider for the configured mode
+
+    Raises:
+        ValueError: If proxy mode is requested but credentials are not configured
+    """
+    oauth_mode = _get_oauth_mode()
+
+    if oauth_mode == "proxy":
+        logger.info("Configuring HTTP auth with OAuth Proxy mode")
+        proxy = SalesforceOAuthProxy.from_env()
+        if proxy is None:
+            raise ValueError(
+                "OAuth proxy mode requires SALESFORCE_CLIENT_ID environment variable. "
+                "SALESFORCE_CLIENT_SECRET is optional (omit for PKCE-only mode)."
+            )
+        return proxy.oauth_proxy
+
+    # Default: Bearer token mode
+    logger.info("Configuring HTTP auth with Bearer token mode")
+    return SalesforceTokenVerifier()
 
 
 def create_server(transport: str = "stdio") -> FastMCP:
@@ -191,12 +160,10 @@ def create_server(transport: str = "stdio") -> FastMCP:
     """
     logger.debug("Creating FastMCP server instance for transport: %s", transport)
 
-    config = get_config()
-
     # Configure auth for HTTP mode
     auth: "AuthProvider | None" = None
     if transport == "http":
-        auth = _create_http_auth(config)
+        auth = _create_http_auth()
 
     mcp = FastMCP(
         "Salesforce MCP Server",
