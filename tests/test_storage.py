@@ -40,27 +40,33 @@ class TestCreateStorage:
     def test_redis_storage(self):
         """Test creating Redis storage."""
         mock_redis_store = MagicMock()
-        mock_redis_store_class = MagicMock()
-        mock_redis_store_class.from_url.return_value = mock_redis_store
+        mock_redis_store_class = MagicMock(return_value=mock_redis_store)
 
         with patch.dict(
             os.environ,
             {"OAUTH_STORAGE_TYPE": "redis", "REDIS_URL": "redis://localhost:6379"},
             clear=True,
         ):
-            with patch("key_value.aio.stores.redis.RedisStore", mock_redis_store_class):
-                storage = create_storage()
+            with patch(
+                "salesforce_mcp_server.oauth.storage.RedisStore",
+                mock_redis_store_class,
+                create=True,
+            ):
+                # Patch at import location
+                with patch(
+                    "key_value.aio.stores.redis.RedisStore", mock_redis_store_class
+                ):
+                    storage = create_storage()
 
-                mock_redis_store_class.from_url.assert_called_once_with(
-                    "redis://localhost:6379"
-                )
-                assert storage == mock_redis_store
+                    mock_redis_store_class.assert_called_once_with(
+                        url="redis://localhost:6379"
+                    )
+                    assert storage == mock_redis_store
 
     def test_redis_storage_default_url(self):
         """Test Redis storage uses default URL when not specified."""
         mock_redis_store = MagicMock()
-        mock_redis_store_class = MagicMock()
-        mock_redis_store_class.from_url.return_value = mock_redis_store
+        mock_redis_store_class = MagicMock(return_value=mock_redis_store)
 
         with patch.dict(
             os.environ,
@@ -73,8 +79,8 @@ class TestCreateStorage:
             with patch("key_value.aio.stores.redis.RedisStore", mock_redis_store_class):
                 create_storage()
 
-                mock_redis_store_class.from_url.assert_called_once_with(
-                    "redis://localhost:6379"
+                mock_redis_store_class.assert_called_once_with(
+                    url="redis://localhost:6379"
                 )
 
     def test_unknown_storage_type_raises_error(self):
@@ -107,8 +113,7 @@ class TestCreateStorage:
         test_key = Fernet.generate_key().decode()
 
         mock_redis_store = MagicMock()
-        mock_redis_store_class = MagicMock()
-        mock_redis_store_class.from_url.return_value = mock_redis_store
+        mock_redis_store_class = MagicMock(return_value=mock_redis_store)
 
         with patch.dict(
             os.environ,
