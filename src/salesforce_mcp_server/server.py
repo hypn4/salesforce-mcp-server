@@ -13,6 +13,7 @@ import typer
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 
+from .context import set_client_manager
 from .logging_config import get_logger, setup_logging
 from .oauth.proxy import SalesforceOAuthProxy
 from .oauth.token_verifier import SalesforceTokenVerifier
@@ -84,6 +85,9 @@ async def app_lifespan(mcp: FastMCP) -> AsyncIterator[AppContext]:
 
     client_manager = SalesforceClientManager()
 
+    # Register in contextvar for module-level access
+    set_client_manager(client_manager)
+
     ctx = AppContext(
         client_manager=client_manager,
         config=config,
@@ -105,6 +109,117 @@ def _get_oauth_mode() -> str:
         str: 'proxy' for OAuth proxy mode, 'bearer' for Bearer token mode
     """
     return os.getenv("OAUTH_MODE", "bearer").lower()
+
+
+def _mask_secret(value: str | None) -> str:
+    """Mask sensitive values for display."""
+    if not value:
+        return "(not set)"
+    if len(value) <= 8:
+        return "****"
+    return value[:4] + "****" + value[-4:]
+
+
+def _print_config(transport: str, port: int) -> None:
+    """Print server configuration at startup."""
+    oauth_mode = _get_oauth_mode()
+    client_id = os.getenv("SALESFORCE_CLIENT_ID")
+    client_secret = os.getenv("SALESFORCE_CLIENT_SECRET")
+    storage_type = os.getenv("OAUTH_STORAGE_TYPE", "memory").lower()
+    redis_url = os.getenv("REDIS_URL")
+
+    # Build configuration sections
+    sections: list[tuple[str, list[tuple[str, str]]]] = [
+        (
+            "Server",
+            [
+                ("Transport", transport),
+                ("Port", str(port)),
+                ("Log Level", os.getenv("LOG_LEVEL", "INFO")),
+            ],
+        ),
+        (
+            "Salesforce",
+            [
+                (
+                    "Login URL",
+                    os.getenv("SALESFORCE_LOGIN_URL", "https://login.salesforce.com"),
+                ),
+                (
+                    "Instance URL",
+                    os.getenv(
+                        "SALESFORCE_INSTANCE_URL", "https://login.salesforce.com"
+                    ),
+                ),
+            ],
+        ),
+    ]
+
+    # OAuth section (HTTP mode only)
+    if transport == "http":
+        oauth_items: list[tuple[str, str]] = [
+            ("Mode", oauth_mode),
+        ]
+
+        if oauth_mode == "proxy":
+            oauth_items.extend(
+                [
+                    ("Client ID", client_id or "(not set)"),
+                    ("Client Secret", _mask_secret(client_secret)),
+                    ("Scopes", os.getenv("OAUTH_REQUIRED_SCOPES", "(not set)")),
+                    ("Redirect Path", os.getenv("OAUTH_REDIRECT_PATH", "/auth/callback")),
+                    ("Base URL", os.getenv("BASE_URL") or "(not set)"),
+                ]
+            )
+
+        sections.append(("OAuth", oauth_items))
+
+        # Storage section (proxy mode only)
+        if oauth_mode == "proxy":
+            storage_items: list[tuple[str, str]] = [
+                ("Type", storage_type),
+            ]
+            if storage_type == "redis":
+                storage_items.append(("Redis URL", redis_url or "(not set)"))
+            storage_items.append(
+                (
+                    "Encryption",
+                    "enabled" if os.getenv("STORAGE_ENCRYPTION_KEY") else "disabled",
+                )
+            )
+            sections.append(("Storage", storage_items))
+
+    # Print configuration
+    logger.info("")
+    logger.info("=" * 55)
+    logger.info("  Salesforce MCP Server Configuration")
+    logger.info("=" * 55)
+
+    for section_name, items in sections:
+        logger.info("")
+        logger.info("  [%s]", section_name)
+        for key, value in items:
+            logger.info("    %-20s %s", key, value)
+
+    logger.info("")
+    logger.info("=" * 55)
+
+    # Print warnings for missing required values
+    warnings: list[str] = []
+
+    if transport == "http" and oauth_mode == "proxy":
+        if not client_id:
+            warnings.append("SALESFORCE_CLIENT_ID is required for proxy mode")
+        if not os.getenv("BASE_URL"):
+            warnings.append("BASE_URL should be set for OAuth callbacks")
+        if storage_type == "redis" and not redis_url:
+            warnings.append("REDIS_URL is required when OAUTH_STORAGE_TYPE=redis")
+
+    for warning in warnings:
+        logger.warning("  ⚠ %s", warning)
+
+    if warnings:
+        logger.info("")
 
 
 def _create_http_auth() -> "AuthProvider":
@@ -195,6 +310,7 @@ async def run_server_async(transport: str, port: int) -> None:
         transport: Transport mode ('stdio' or 'http')
         port: Port number for HTTP transport
     """
+    _print_config(transport, port)
     server = create_server(transport)
 
     def handle_shutdown(sig: signal.Signals) -> None:
