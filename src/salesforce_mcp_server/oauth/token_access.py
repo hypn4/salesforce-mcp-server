@@ -1,7 +1,11 @@
 """Token access utilities for MCP tools.
 
 Provides helper functions to extract Salesforce token information
-from FastMCP context for use in tool handlers.
+from FastMCP context for use in tool handlers. The token is validated
+by SalesforceTokenVerifier when clients send Bearer tokens.
+
+Guest tokens (created for unauthenticated discovery) have sf_access_token=None,
+causing this function to return None so tools can raise AuthenticationError.
 """
 
 from __future__ import annotations
@@ -28,12 +32,15 @@ class TokenInfo(msgspec.Struct, kw_only=True):
 def get_salesforce_token() -> TokenInfo | None:
     """Get the current Salesforce token from FastMCP context.
 
-    This function extracts token information from FastMCP's OAuth context,
-    which is populated by SalesforceTokenVerifier after OAuthProxy validates
-    the incoming request.
+    This function extracts token information from FastMCP's context,
+    which is populated by SalesforceTokenVerifier after validating
+    the Bearer token from the Authorization header.
+
+    For guest tokens (unauthenticated discovery), sf_access_token is None,
+    so this function returns None, allowing tools to raise AuthenticationError.
 
     Priority:
-    1. FastMCP get_access_token() - OAuth-authenticated requests
+    1. FastMCP get_access_token() - Bearer token authenticated requests
     2. Environment variables - fallback for development/testing
 
     Returns:
@@ -45,8 +52,12 @@ def get_salesforce_token() -> TokenInfo | None:
 
         access_token = get_access_token()
         if access_token is not None:
-            # Use sf_access_token from claims (set by SalesforceTokenVerifier)
-            sf_token = access_token.claims.get("sf_access_token", access_token.token)
+            # Check if this is a valid SF token (not guest)
+            sf_token = access_token.claims.get("sf_access_token")
+            if sf_token is None:
+                # Guest token - no valid Salesforce access
+                logger.debug("Guest token detected, returning None")
+                return None
 
             token_info = TokenInfo(
                 user_id=access_token.claims.get("user_id", ""),
